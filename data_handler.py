@@ -41,6 +41,7 @@ class DataHandler:
                          }
             
     def _show_datas(self,process:Callable,linestyle='',alpha = 1.0,xscale_log = False,pair = False):
+        colors = ['orangered','deepskyblue','limegreen']
 
         if pair:
             if len(self.datas) % 2 != 0:
@@ -50,54 +51,39 @@ class DataHandler:
 
             for i in range(0,len(self.datas),2):
                 row_i = int(i/2)
-                
-                label_x,ax_line,ax_data = process('加速度X',self.datas[i],self.datas[i+1])
-                label_y,ay_line,ay_data = process('加速度Y',self.datas[i],self.datas[i+1])
-                label_z,az_line,az_data = process('加速度Z',self.datas[i],self.datas[i+1])
-                axs[row_i,0].plot(ax_line,ax_data,label=label_x,color='orangered',linestyle=linestyle,alpha=alpha,marker='o',ms=0.5)
-                axs[row_i,0].plot(ay_line,ay_data,label=label_y,color='deepskyblue',linestyle=linestyle,alpha=alpha,marker='o',ms=0.5)
-                axs[row_i,0].plot(az_line,az_data,label=label_z,color='limegreen',linestyle=linestyle,alpha=alpha,marker='o',ms=0.5)
-
-                label_gx,gx_line,gx_data = process('角速度X',self.datas[i],self.datas[i+1])
-                label_gy,gy_line,gy_data = process('角速度Y',self.datas[i],self.datas[i+1])
-                label_gz,gz_line,gz_data = process('角速度Z',self.datas[i],self.datas[i+1])
-                axs[row_i,1].plot(gx_line,gx_data,label=label_gx,color='orangered',linestyle=linestyle,alpha=alpha,marker='o',ms=0.5)
-                axs[row_i,1].plot(gy_line,gy_data,label=label_gy,color='deepskyblue',linestyle=linestyle,alpha=alpha,marker='o',ms=0.5)
-                axs[row_i,1].plot(gz_line,gz_data,label=label_gz,color='limegreen',linestyle=linestyle,alpha=alpha,marker='o',ms=0.5)
+                for j,key in enumerate(self.jp_en.keys()):
+                    label,line,plt_data = process(key,self.datas[i],self.datas[i+1])
+                    if j<3:
+                        axs[i,0].plot(line,plt_data,label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                    else:
+                        axs[i,1].plot(line,plt_data,label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
                 if xscale_log:
                     axs[row_i,0].set_xscale('log') 
                     axs[row_i,1].set_xscale('log') 
                 axs[row_i,0].legend()
                 axs[row_i,1].legend()
-            if len(self.datas) == 1:
+            if len(self.datas) == 2:
                 [plt.delaxes(ax) for ax in axs[1, :]]
 
         else:
             _,axs = plt.subplots(2 if len(self.datas) == 1 else len(self.datas),2)
             for i,data in enumerate(self.datas):
-                label_x,ax_line,ax_data = process('加速度X',data)
-                label_y,ay_line,ay_data = process('加速度Y',data)
-                label_z,az_line,az_data = process('加速度Z',data)
-                axs[i,0].plot(ax_line,ax_data,label=label_x,color='orangered',linestyle=linestyle,alpha=alpha,marker='o',ms=1)
-                axs[i,0].plot(ay_line,ay_data,label=label_y,color='deepskyblue',linestyle=linestyle,alpha=alpha,marker='o',ms=1)
-                axs[i,0].plot(az_line,az_data,label=label_z,color='limegreen',linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                for j,key in enumerate(self.jp_en.keys()):
+                    label,line,plt_data = process(key,data)
+                    if j<3:
+                        axs[i,0].plot(line,plt_data,label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                    else:
+                        axs[i,1].plot(line,plt_data,label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                    if xscale_log:
+                        axs[i,0].set_xscale('log') 
+                        axs[i,1].set_xscale('log') 
+                    axs[i,0].legend()
+                    axs[i,1].legend()
 
-                label_gx,gx_line,gx_data = process('角速度X',data)
-                label_gy,gy_line,gy_data = process('角速度Y',data)
-                label_gz,gz_line,gz_data = process('角速度Z',data)
-                axs[i,1].plot(gx_line,gx_data,label=label_gx,color='orangered',linestyle=linestyle,alpha=alpha,marker='o',ms=1)
-                axs[i,1].plot(gy_line,gy_data,label=label_gy,color='deepskyblue',linestyle=linestyle,alpha=alpha,marker='o',ms=1)
-                axs[i,1].plot(gz_line,gz_data,label=label_gz,color='limegreen',linestyle=linestyle,alpha=alpha,marker='o',ms=1)
-                if xscale_log:
-                    axs[i,0].set_xscale('log') 
-                    axs[i,1].set_xscale('log') 
-                axs[i,0].legend()
-                axs[i,1].legend()
             if len(self.datas) == 1:
                 [plt.delaxes(ax) for ax in axs[1, :]]
         plt.tight_layout()
         plt.show()
-            
             
         
     def _not_calc(self,name,data):
@@ -151,8 +137,6 @@ def main():
     elif command == '3':
         handler.show_data_corr()
     
-    
-# スクリプトが直接実行された場合にのみ main 関数を呼び出す
 if __name__ == "__main__":
     main()
 
