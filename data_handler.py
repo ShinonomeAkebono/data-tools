@@ -2,6 +2,7 @@ import pandas as pd
 from glob import glob
 import matplotlib.pyplot as plt
 import numpy as np
+from typing import Callable
 
 class DataHandler:
     # コンストラクタ
@@ -15,10 +16,8 @@ class DataHandler:
             try:
                 selects = input('\nselect indexes...')
                 indexes = []
-                print(indexes)
                 for index in selects.split(' '):
                     indexes.append(int(index))
-                print(file_names)
                 if max(indexes)>=len(file_names):
                     print('input number exceeds the number of files!')
                     continue
@@ -31,79 +30,131 @@ class DataHandler:
         for index in indexes:
             file_name = file_names[index]
             self.datas.append((file_name,pd.read_csv(file_name,skiprows=4)))
+        
+        self.jp_en = {
+            '加速度X':'accx',
+            '加速度Y':'accy',
+            '加速度Z':'accz',
+            '角速度X':'gyrx',
+            '角速度Y':'gyry',
+            '角速度Z':'gyrz',
+                         }
+            
+    def _show_datas(self,process:Callable,linestyle='',alpha = 1.0,xscale_log = False,pair = False):
 
-    def show_selected_datas(self):
-        markers = ['o','^','s','D','+','x']
-        for i,data in enumerate(self.datas):
-            plt.subplot(len(self.datas),1,i+1)
-            label = data[0].split('\\')[-1].split('.')[0]
-            plt.plot(data[1].index,data[1]['加速度X'].to_numpy(),label='accx:{}'.format(label),marker=markers[i],color='orangered',linestyle='',ms=1)
-            plt.plot(data[1].index,data[1]['加速度Y'].to_numpy(),label='accy:{}'.format(label),marker=markers[i],color='deepskyblue',linestyle='',ms=1)
-            plt.plot(data[1].index,data[1]['加速度Z'].to_numpy(),label='accz:{}'.format(label),marker=markers[i],color='limegreen',linestyle='',ms=1)
-            plt.legend()
-        plt.show()
-    
-    def show_fft_result(self):
-        markers = ['o','^','s','D','+','x']
-        for i,data in enumerate(self.datas):
-            plt.subplot(len(self.datas),1,i+1)
-            label = data[0].split('\\')[-1].split('.')[0]
-            N = len(data[1])
-            data[1]['accelX_fft']= abs(np.fft.fft(data[1]['加速度X'],axis=0)/(N/2))
-            data[1]['accelY_fft']= abs(np.fft.fft(data[1]['加速度Y'],axis=0)/(N/2))
-            data[1]['accelZ_fft']= abs(np.fft.fft(data[1]['加速度Z'],axis=0)/(N/2))
-            freq = np.linspace(0,1000,N)
-            plt.plot(freq,data[1]['accelX_fft'].to_numpy(),label='accx:{}'.format(label),marker=markers[i],color='orangered',ms=1)
-            plt.plot(freq,data[1]['accelY_fft'].to_numpy(),label='accy:{}'.format(label),marker=markers[i],color='deepskyblue',ms=1)
-            plt.plot(freq,data[1]['accelZ_fft'].to_numpy(),label='accz:{}'.format(label),marker=markers[i],color='limegreen',ms=1)
-            plt.xscale("log")
-            plt.legend()
-        plt.show()
+        if pair:
+            if len(self.datas) % 2 != 0:
+                print('please select an even number of datas!')
+                return
+            _,axs = plt.subplots(2 if int(len(self.datas)/2) == 1 else int(len(self.datas)/2),2)
 
-    def _calc_corr(self,name,df1,df2):
-        d1 = df1[name]
-        d2 = df2[name]
+            for i in range(0,len(self.datas),2):
+                row_i = int(i/2)
+                
+                label_x,ax_line,ax_data = process('加速度X',self.datas[i],self.datas[i+1])
+                label_y,ay_line,ay_data = process('加速度Y',self.datas[i],self.datas[i+1])
+                label_z,az_line,az_data = process('加速度Z',self.datas[i],self.datas[i+1])
+                axs[row_i,0].plot(ax_line,ax_data,label=label_x,color='orangered',linestyle=linestyle,alpha=alpha,marker='o',ms=0.5)
+                axs[row_i,0].plot(ay_line,ay_data,label=label_y,color='deepskyblue',linestyle=linestyle,alpha=alpha,marker='o',ms=0.5)
+                axs[row_i,0].plot(az_line,az_data,label=label_z,color='limegreen',linestyle=linestyle,alpha=alpha,marker='o',ms=0.5)
+
+                label_gx,gx_line,gx_data = process('角速度X',self.datas[i],self.datas[i+1])
+                label_gy,gy_line,gy_data = process('角速度Y',self.datas[i],self.datas[i+1])
+                label_gz,gz_line,gz_data = process('角速度Z',self.datas[i],self.datas[i+1])
+                axs[row_i,1].plot(gx_line,gx_data,label=label_gx,color='orangered',linestyle=linestyle,alpha=alpha,marker='o',ms=0.5)
+                axs[row_i,1].plot(gy_line,gy_data,label=label_gy,color='deepskyblue',linestyle=linestyle,alpha=alpha,marker='o',ms=0.5)
+                axs[row_i,1].plot(gz_line,gz_data,label=label_gz,color='limegreen',linestyle=linestyle,alpha=alpha,marker='o',ms=0.5)
+                if xscale_log:
+                    axs[row_i,0].set_xscale('log') 
+                    axs[row_i,1].set_xscale('log') 
+                axs[row_i,0].legend()
+                axs[row_i,1].legend()
+            if len(self.datas) == 1:
+                [plt.delaxes(ax) for ax in axs[1, :]]
+
+        else:
+            _,axs = plt.subplots(2 if len(self.datas) == 1 else len(self.datas),2)
+            for i,data in enumerate(self.datas):
+                label_x,ax_line,ax_data = process('加速度X',data)
+                label_y,ay_line,ay_data = process('加速度Y',data)
+                label_z,az_line,az_data = process('加速度Z',data)
+                axs[i,0].plot(ax_line,ax_data,label=label_x,color='orangered',linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                axs[i,0].plot(ay_line,ay_data,label=label_y,color='deepskyblue',linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                axs[i,0].plot(az_line,az_data,label=label_z,color='limegreen',linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+
+                label_gx,gx_line,gx_data = process('角速度X',data)
+                label_gy,gy_line,gy_data = process('角速度Y',data)
+                label_gz,gz_line,gz_data = process('角速度Z',data)
+                axs[i,1].plot(gx_line,gx_data,label=label_gx,color='orangered',linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                axs[i,1].plot(gy_line,gy_data,label=label_gy,color='deepskyblue',linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                axs[i,1].plot(gz_line,gz_data,label=label_gz,color='limegreen',linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                if xscale_log:
+                    axs[i,0].set_xscale('log') 
+                    axs[i,1].set_xscale('log') 
+                axs[i,0].legend()
+                axs[i,1].legend()
+            if len(self.datas) == 1:
+                [plt.delaxes(ax) for ax in axs[1, :]]
+        plt.tight_layout()
+        plt.show()
+            
+            
+        
+    def _not_calc(self,name,data):
+        label = self.jp_en[name] + ':' + data[0].split('\\')[-1].split('.')[0]
+        ret_line = data[1].index
+        ret_data = data[1][name].to_numpy()
+        return label,ret_line,ret_data
+
+    def _calc_fft(self,name,data):
+        label = self.jp_en[name] + ':' + data[0].split('\\')[-1].split('.')[0]
+        N = len(data[1])
+        ret_line = np.linspace(0,1000,N) 
+        ret_data = abs(np.fft.fft(data[1][name],axis=0)/(N/2))
+        return label,ret_line,ret_data
+
+    def _calc_corr_test(self,name,data1,data2):
+        label = self.jp_en[name] + ':' + data1[0].split('\\')[-1].split('.')[0].split('_')[-1]+'&'+data2[0].split('\\')[-1].split('.')[0].split('_')[-1]
+        d1 = data1[1][name]
+        d2 = data2[1][name]
         mea_d1 = d1 - d1.mean()
         mea_d2 = d2 - d2.mean()
         corr = np.correlate(mea_d1,mea_d2,'same')
         corr /= (np.linalg.norm(mea_d1,ord=2)*np.linalg.norm(mea_d2,ord=2))
-        return corr
+        ret_line = range(len(corr))
+        ret_data = corr
+        print("{}'s max value is...:{}".format(label,max(corr)))
+        return label,ret_line,ret_data
+        
+    def show_selected_datas(self):
+        self._show_datas(process=self._not_calc)
+    
+    def show_fft_result(self):
+        self._show_datas(process=self._calc_fft,linestyle=None,xscale_log=True)
 
-    def plot_data_corr(self):
-        if len(self.datas) % 2 != 0:
-            return
-        for i in range(0,len(self.datas),2):
-            plt.subplot(int(len(self.datas)/2),1,int(i/2+1))
-            label = self.datas[i][0].split('\\')[-1].split('.')[0].split('_')[-1]+'&'+self.datas[i+1][0].split('\\')[-1].split('.')[0].split('_')[-1]
-
-            corrx = self._calc_corr('加速度X',self.datas[i][1],self.datas[i+1][1])
-            corry = self._calc_corr('加速度Y',self.datas[i][1],self.datas[i+1][1])
-            corrz = self._calc_corr('加速度Z',self.datas[i][1],self.datas[i+1][1])
-            plt.plot(range(len(corrx)),corrx,label='accx:{}'.format(label),color='orangered',alpha = 0.3)
-            plt.plot(range(len(corry)),corry,label='accy:{}'.format(label),color='deepskyblue',alpha = 0.3)
-            plt.plot(range(len(corrz)),corrz,label='accz:{}'.format(label),color='limegreen',alpha = 0.3)
-            plt.legend()
-            print(label,'Xmax:{}'.format(max(corrx)),'Ymax:{}'.format(max(corry)),'Zmax:{}'.format(max(corrz)))
-        plt.show()
-            
-
-
+    def show_data_corr(self):
+        self._show_datas(process=self._calc_corr_test,alpha=0.3,pair=True)
         
 def test():
     handler = DataHandler()
-    handler.plot_data_corr()
+    handler.show_data_corr()
 
 def main():
+    command = input('please select command number... \n1:just show\n2:fft\n3:calculate corriration\n')
+    
     handler = DataHandler()
-    for data in handler.datas:
-        print(data[0],data[1].head())
-    handler.show_selected_datas()
-    handler.show_fft_result()
-    handler.plot_data_corr()
+    
+    if command == '1':
+        handler.show_selected_datas()
+    elif command == '2':
+        handler.show_fft_result()
+    elif command == '3':
+        handler.show_data_corr()
+    
     
 # スクリプトが直接実行された場合にのみ main 関数を呼び出す
 if __name__ == "__main__":
-    test()
+    main()
 
 
 
