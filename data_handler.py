@@ -99,7 +99,7 @@ class DataHandler:
         ret_data = (data[0],abs(np.fft.fft(data[1][name],axis=0)/(N/2)))
         return label,ret_line,ret_data
 
-    def _calc_corr_test(self,name,data1,data2):
+    def _calc_corr(self,name,data1,data2):
         label = self.jp_en[name] + ':' + data1[0].split('\\')[-1].split('.')[0].split('_')[-1]+'&'+data2[0].split('\\')[-1].split('.')[0].split('_')[-1]
         d1 = data1[1][name]
         d2 = data2[1][name]
@@ -122,7 +122,7 @@ class DataHandler:
         self._show_datas(process=self._calc_fft,linestyle=None,xscale_log=True)
 
     def show_data_corr(self):
-        self._show_datas(process=self._calc_corr_test,alpha=0.3,pair=True)
+        self._show_datas(process=self._calc_corr,alpha=0.3,pair=True)
     
     def show_lpf_result(self):
         self._show_datas()
