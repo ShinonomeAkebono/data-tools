@@ -54,9 +54,9 @@ class DataHandler:
                 for j,key in enumerate(self.jp_en.keys()):
                     label,line,plt_data = process(key,self.datas[i],self.datas[i+1])
                     if j<3:
-                        axs[i,0].plot(line,plt_data,label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                        axs[i,0].plot(line,plt_data[1],label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
                     else:
-                        axs[i,1].plot(line,plt_data,label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                        axs[i,1].plot(line,plt_data[1],label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
                 if xscale_log:
                     axs[row_i,0].set_xscale('log') 
                     axs[row_i,1].set_xscale('log') 
@@ -71,14 +71,14 @@ class DataHandler:
                 for j,key in enumerate(self.jp_en.keys()):
                     label,line,plt_data = process(key,data)
                     if j<3:
-                        axs[i,0].plot(line,plt_data,label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                        axs[i,0].plot(line,plt_data[1],label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
                     else:
-                        axs[i,1].plot(line,plt_data,label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
-                    if xscale_log:
-                        axs[i,0].set_xscale('log') 
-                        axs[i,1].set_xscale('log') 
-                    axs[i,0].legend()
-                    axs[i,1].legend()
+                        axs[i,1].plot(line,plt_data[1],label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                if xscale_log:
+                    axs[i,0].set_xscale('log') 
+                    axs[i,1].set_xscale('log') 
+                axs[i,0].legend()
+                axs[i,1].legend()
 
             if len(self.datas) == 1:
                 [plt.delaxes(ax) for ax in axs[1, :]]
@@ -89,14 +89,14 @@ class DataHandler:
     def _not_calc(self,name,data):
         label = self.jp_en[name] + ':' + data[0].split('\\')[-1].split('.')[0]
         ret_line = data[1].index
-        ret_data = data[1][name].to_numpy()
+        ret_data = (data[0],data[1][name].to_numpy())
         return label,ret_line,ret_data
 
     def _calc_fft(self,name,data):
         label = self.jp_en[name] + ':' + data[0].split('\\')[-1].split('.')[0]
         N = len(data[1])
-        ret_line = np.linspace(0,1000,N) 
-        ret_data = abs(np.fft.fft(data[1][name],axis=0)/(N/2))
+        ret_line = np.linspace(0,N,N) 
+        ret_data = (data[0],abs(np.fft.fft(data[1][name],axis=0)/(N/2)))
         return label,ret_line,ret_data
 
     def _calc_corr_test(self,name,data1,data2):
@@ -108,9 +108,12 @@ class DataHandler:
         corr = np.correlate(mea_d1,mea_d2,'same')
         corr /= (np.linalg.norm(mea_d1,ord=2)*np.linalg.norm(mea_d2,ord=2))
         ret_line = range(len(corr))
-        ret_data = corr
+        ret_data = (label,corr)
         print("{}'s max value is...:{}".format(label,max(corr)))
         return label,ret_line,ret_data
+    
+    def _proc_lpf(self,name,data):
+        pass
         
     def show_selected_datas(self):
         self._show_datas(process=self._not_calc)
@@ -120,6 +123,9 @@ class DataHandler:
 
     def show_data_corr(self):
         self._show_datas(process=self._calc_corr_test,alpha=0.3,pair=True)
+    
+    def show_lpf_result(self):
+        self._show_datas()
         
 def test():
     handler = DataHandler()
