@@ -3,6 +3,7 @@ from glob import glob
 import matplotlib.pyplot as plt
 import numpy as np
 from typing import Callable
+from scipy import signal
 
 class DataHandler:
     # コンストラクタ
@@ -52,7 +53,7 @@ class DataHandler:
             for i in range(0,len(self.datas),2):
                 row_i = int(i/2)
                 for j,key in enumerate(self.jp_en.keys()):
-                    label,line,plt_data = process(key,self.datas[i],self.datas[i+1])
+                    label,line,plt_data,_ = process(key,self.datas[i],self.datas[i+1])
                     if j<3:
                         axs[i,0].plot(line,plt_data[1],label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
                     else:
@@ -69,7 +70,7 @@ class DataHandler:
             _,axs = plt.subplots(2 if len(self.datas) == 1 else len(self.datas),2)
             for i,data in enumerate(self.datas):
                 for j,key in enumerate(self.jp_en.keys()):
-                    label,line,plt_data = process(key,data)
+                    label,line,plt_data,_ = process(key,data)
                     if j<3:
                         axs[i,0].plot(line,plt_data[1],label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
                     else:
@@ -90,14 +91,17 @@ class DataHandler:
         label = self.jp_en[name] + ':' + data[0].split('\\')[-1].split('.')[0]
         ret_line = data[1].index
         ret_data = (data[0],data[1][name].to_numpy())
-        return label,ret_line,ret_data
+        return label,ret_line,ret_data,name
 
     def _calc_fft(self,name,data):
         label = self.jp_en[name] + ':' + data[0].split('\\')[-1].split('.')[0]
         N = len(data[1])
-        ret_line = np.linspace(0,N,N) 
-        ret_data = (data[0],abs(np.fft.fft(data[1][name],axis=0)/(N/2)))
-        return label,ret_line,ret_data
+        window = signal.windows.hann(N)
+        ret_line = np.linspace(0,1,N//2) 
+        fft_result = abs(np.fft.fft(data[1][name]*window,axis=0)/(N/2))
+        plot_data = fft_result[:N//2]
+        ret_data = (data[0],plot_data)
+        return label,ret_line,ret_data,name
 
     def _calc_corr(self,name,data1,data2):
         label = self.jp_en[name] + ':' + data1[0].split('\\')[-1].split('.')[0].split('_')[-1]+'&'+data2[0].split('\\')[-1].split('.')[0].split('_')[-1]
@@ -110,10 +114,34 @@ class DataHandler:
         ret_line = range(len(corr))
         ret_data = (label,corr)
         print("{}'s max value is...:{}".format(label,max(corr)))
-        return label,ret_line,ret_data
+        return label,ret_line,ret_data,name
     
+    def _calc_lpf_corr(self,name,data1,data2):
+        _,_,lpf_data1,_=self._proc_lpf(name,data1)
+        _,_,lpf_data2,_=self._proc_lpf(name,data2)
+        return self._calc_corr(name,lpf_data1,lpf_data2)
+       
     def _proc_lpf(self,name,data):
-        pass
+        label = [data[1]]
+        ret_line = data[1].index
+        #バターワースフィルタの次数nと正規化周波数wnを計算
+        n,wn = signal.buttord(wp=0.1,ws=0.2,gpass=3,gstop=40)
+        #ローパスフィルタの伝達関数の分子分母b,aを計算
+        b,a = signal.butter(n,wn,btype='low') 
+        #フィルタリング
+        data[1][name]=signal.filtfilt(b,a,data[1][name])
+        return label,ret_line,data,name 
+    
+    def _calc_lpf_show(self,name,data):
+        _,_,lpf_data,lpf_name = self._proc_lpf(name,data)
+        label,ret_line,ret_data,ret_name = self._not_calc(lpf_name,lpf_data)
+        return label,ret_line,ret_data,ret_name
+        
+    def _calc_lpf_fft(self,name,data):
+        _,_,lpf_data,lpf_name = self._proc_lpf(name,data)
+        label,ret_line,ret_data,ret_name = self._calc_fft(lpf_name,lpf_data)
+        return label,ret_line,ret_data,ret_name
+
         
     def show_selected_datas(self):
         self._show_datas(process=self._not_calc)
@@ -125,14 +153,19 @@ class DataHandler:
         self._show_datas(process=self._calc_corr,alpha=0.3,pair=True)
     
     def show_lpf_result(self):
-        self._show_datas()
+        self._show_datas(process=self._calc_lpf_show)
+        self._show_datas(process=self._calc_lpf_fft,linestyle=None,xscale_log=True)
+    
+    def show_processed_corr(self):
+        self._show_datas(process=self._calc_lpf_corr,alpha=0.3,pair=True)
+        
         
 def test():
     handler = DataHandler()
     handler.show_data_corr()
 
 def main():
-    command = input('please select command number... \n1:just show\n2:fft\n3:calculate corriration\n')
+    command = input('please select command number... \n1:just show\n2:fft\n3:calculate corriration\n4:process with LPF\n5:show LPF processed corriration')
     
     handler = DataHandler()
     
@@ -142,6 +175,10 @@ def main():
         handler.show_fft_result()
     elif command == '3':
         handler.show_data_corr()
+    elif command == '4':
+        handler.show_lpf_result()
+    elif command == '5':
+        handler.show_processed_corr()
     
 if __name__ == "__main__":
     main()
