@@ -40,6 +40,10 @@ class DataHandler:
             '角速度Y':'gyry',
             '角速度Z':'gyrz',
                          }
+        self.wp = 0.001
+        self.ws = 0.01
+        self.gpass = 3
+        self.gstop = 40
             
     def _show_datas(self,process:Callable,linestyle='',alpha = 1.0,xscale_log = False,pair = False):
         colors = ['orangered','deepskyblue','limegreen']
@@ -55,9 +59,9 @@ class DataHandler:
                 for j,key in enumerate(self.jp_en.keys()):
                     label,line,plt_data,_ = process(key,self.datas[i],self.datas[i+1])
                     if j<3:
-                        axs[i,0].plot(line,plt_data[1],label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                        axs[row_i,0].plot(line,plt_data[1],label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
                     else:
-                        axs[i,1].plot(line,plt_data[1],label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                        axs[row_i,1].plot(line,plt_data[1],label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
                 if xscale_log:
                     axs[row_i,0].set_xscale('log') 
                     axs[row_i,1].set_xscale('log') 
@@ -109,7 +113,7 @@ class DataHandler:
         d2 = data2[1][name]
         mea_d1 = d1 - d1.mean()
         mea_d2 = d2 - d2.mean()
-        corr = np.correlate(mea_d1,mea_d2,'same')
+        corr = signal.correlate(mea_d1,mea_d2)
         corr /= (np.linalg.norm(mea_d1,ord=2)*np.linalg.norm(mea_d2,ord=2))
         ret_line = range(len(corr))
         ret_data = (label,corr)
@@ -125,13 +129,33 @@ class DataHandler:
         label = [data[1]]
         ret_line = data[1].index
         #バターワースフィルタの次数nと正規化周波数wnを計算
-        n,wn = signal.buttord(wp=0.1,ws=0.2,gpass=3,gstop=40)
+        n,wn = signal.buttord(wp=self.wp,ws=self.ws,gpass=self.gpass,gstop=self.gstop)
         #ローパスフィルタの伝達関数の分子分母b,aを計算
         b,a = signal.butter(n,wn,btype='low') 
         #フィルタリング
         data[1][name]=signal.filtfilt(b,a,data[1][name])
         return label,ret_line,data,name 
-    
+
+    def _proc_lpf_df(self,column):
+        #バターワースフィルタの次数nと正規化周波数wnを計算
+        n,wn = signal.buttord(wp=self.wp,ws=self.ws,gpass=self.gpass,gstop=self.gstop)
+        #ローパスフィルタの伝達関数の分子分母b,aを計算
+        b,a = signal.butter(n,wn,btype='low') 
+        #フィルタリング
+        return signal.filtfilt(b,a,column)
+
+    def _calc_lpf_corrmax(self,name,data):
+        df_cp = data[1].copy()
+        scale = range(-10,-1,0.1)
+        for i in range(len(scale)):
+            self.wp=10**scale[i]
+            self.ws=self.wp+0.1
+            for key in self.jp_en.keys():
+                df_cp[key] = self._proc_lpf_df(df_cp[key])
+                
+            
+        
+
     def _calc_lpf_show(self,name,data):
         _,_,lpf_data,lpf_name = self._proc_lpf(name,data)
         label,ret_line,ret_data,ret_name = self._not_calc(lpf_name,lpf_data)
@@ -165,7 +189,7 @@ def test():
     handler.show_data_corr()
 
 def main():
-    command = input('please select command number... \n1:just show\n2:fft\n3:calculate corriration\n4:process with LPF\n5:show LPF processed corriration')
+    command = input('please select command number... \n1:just show\n2:fft\n3:calculate corriration\n4:process with LPF\n5:show LPF processed corriration\n')
     
     handler = DataHandler()
     
