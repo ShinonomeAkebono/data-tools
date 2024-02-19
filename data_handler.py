@@ -40,8 +40,8 @@ class DataHandler:
             '角速度Y':'gyry',
             '角速度Z':'gyrz',
                          }
-        self.wp = 0.001
-        self.ws = 0.01
+        self.wp = 10**-1.0
+        self.ws = 10**-0.5
         self.gpass = 3
         self.gstop = 40
             
@@ -77,8 +77,10 @@ class DataHandler:
                     label,line,plt_data,_ = process(key,data)
                     if j<3:
                         axs[i,0].plot(line,plt_data[1],label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                        axs[i,0].set_ylim(-30,30)
                     else:
                         axs[i,1].plot(line,plt_data[1],label=label,color=colors[j%3],linestyle=linestyle,alpha=alpha,marker='o',ms=1)
+                        axs[i,1].set_ylim(-100,100)
                 if xscale_log:
                     axs[i,0].set_xscale('log') 
                     axs[i,1].set_xscale('log') 
@@ -88,6 +90,7 @@ class DataHandler:
             if len(self.datas) == 1:
                 [plt.delaxes(ax) for ax in axs[1, :]]
         plt.tight_layout()
+        
         plt.show()
             
         
@@ -125,6 +128,26 @@ class DataHandler:
         _,_,lpf_data2,_=self._proc_lpf(name,data2)
         return self._calc_corr(name,lpf_data1,lpf_data2)
        
+    def _calc_lpf_corrmax(self,name,data1,data2):
+        scale = np.linspace(-4,-0.6,100)
+        max_list = []
+        for i in range(len(scale)):
+            self.wp=10**scale[i]
+            self.ws=10**(scale[i]+0.6)# if scale[i] < -1 else 1
+            df1_cp = data1[1].copy()
+            df2_cp = data2[1].copy()
+            #df1_cp[name] = self._proc_lpf_df(df1_cp[name])
+            df2_cp[name] = self._proc_lpf_df(df2_cp[name])
+            data1_cp=(data1[0],df1_cp)
+            data2_cp=(data2[0],df2_cp)
+            label,_,corr,name = self._calc_corr(name,data1_cp,data2_cp)
+            max_list.append(max(corr[1]))
+        ret_content = pd.DataFrame({name:max_list})
+        ret_content = ret_content.fillna(ret_content[name].mean())
+        ret_line = scale
+        ret_data = (label,ret_content)
+        return label,ret_line,ret_data,name
+        
     def _proc_lpf(self,name,data):
         label = [data[1]]
         ret_line = data[1].index
@@ -143,17 +166,6 @@ class DataHandler:
         b,a = signal.butter(n,wn,btype='low') 
         #フィルタリング
         return signal.filtfilt(b,a,column)
-
-    def _calc_lpf_corrmax(self,name,data):
-        df_cp = data[1].copy()
-        scale = range(-10,-1,0.1)
-        for i in range(len(scale)):
-            self.wp=10**scale[i]
-            self.ws=self.wp+0.1
-            for key in self.jp_en.keys():
-                df_cp[key] = self._proc_lpf_df(df_cp[key])
-                
-            
         
 
     def _calc_lpf_show(self,name,data):
@@ -183,13 +195,17 @@ class DataHandler:
     def show_processed_corr(self):
         self._show_datas(process=self._calc_lpf_corr,alpha=0.3,pair=True)
         
+    def show_corrmax_graph(self):
+        self._show_datas(process=self._calc_lpf_corrmax,pair=True,linestyle=None)
+
+        
         
 def test():
     handler = DataHandler()
     handler.show_data_corr()
 
 def main():
-    command = input('please select command number... \n1:just show\n2:fft\n3:calculate corriration\n4:process with LPF\n5:show LPF processed corriration\n')
+    command = input('please select command number... \n1:just show\n2:fft\n3:corriration\n4:LPF\n5:LPF corriration\n6:corriration max graph\n')
     
     handler = DataHandler()
     
@@ -203,6 +219,8 @@ def main():
         handler.show_lpf_result()
     elif command == '5':
         handler.show_processed_corr()
+    elif command == '6':
+        handler.show_corrmax_graph()
     
 if __name__ == "__main__":
     main()
